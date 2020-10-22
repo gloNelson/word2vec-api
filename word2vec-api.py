@@ -7,8 +7,8 @@ Example call: curl http://127.0.0.1:5000/wor2vec/n_similarity/ws1=Sushi&ws1=Shop
 '''
 
 from flask import Flask, request, jsonify
-from flask.ext.restful import Resource, Api, reqparse
-from gensim.models.word2vec import Word2Vec as w
+from flask_restful import Resource, Api, reqparse
+from gensim.models.keyedvectors import KeyedVectors
 from gensim import utils, matutils
 from numpy import exp, dot, zeros, outer, random, dtype, get_include, float32 as REAL,\
      uint32, seterr, array, uint8, vstack, argsort, fromstring, sqrt, newaxis, ndarray, empty, sum as np_sum
@@ -16,6 +16,7 @@ import cPickle
 import argparse
 import base64
 import sys
+import json
 
 parser = reqparse.RequestParser()
 
@@ -41,7 +42,8 @@ class Similarity(Resource):
         parser.add_argument('w1', type=str, required=True, help="Word 1 cannot be blank!")
         parser.add_argument('w2', type=str, required=True, help="Word 2 cannot be blank!")
         args = parser.parse_args()
-        return model.similarity(args['w1'], args['w2'])
+        print "@@@ Here: " + str(type(model.similarity(args['w1'], args['w2'])))
+        return float(model.similarity(args['w1'], args['w2']))
 
 
 class MostSimilar(Resource):
@@ -118,7 +120,7 @@ if __name__ == '__main__':
     port = int(args.port) if args.port else 5000
     if not args.model:
         print "Usage: word2vec-apy.py --model path/to/the/model [--host host --port 1234]"
-    model = w.load_word2vec_format(model_path, binary=binary)
+    model = KeyedVectors.load_word2vec_format(model_path, binary=True)
     api.add_resource(N_Similarity, path+'/n_similarity')
     api.add_resource(Similarity, path+'/similarity')
     api.add_resource(MostSimilar, path+'/most_similar')
