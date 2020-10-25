@@ -7,17 +7,17 @@ Example call: curl http://127.0.0.1:5000/wor2vec/n_similarity/ws1=Sushi&ws1=Shop
 @TODO: Add command line parameters: host and port
 '''
 
-from flask import Flask, request, jsonify
+from flask import Flask
 from flask_restful import Resource, Api, reqparse
-from gensim.models.keyedvectors import KeyedVectors
-from gensim import utils, matutils
-from numpy import exp, dot, zeros, outer, random, dtype, get_include, float32 as REAL,\
-     uint32, seterr, array, uint8, vstack, argsort, fromstring, sqrt, newaxis, ndarray, empty, sum as np_sum
-import cPickle
+from gensim.models import KeyedVectors
+import nltk
+nltk.download('punkt')
+from nltk.tag.stanford import StanfordPOSTagger
+from nltk.tokenize import word_tokenize
 import argparse
+import pickle
 import base64
-import sys
-import json
+
 
 parser = reqparse.RequestParser()
 
@@ -27,13 +27,22 @@ def filter_words(words):
         return
     return [word for word in words if word in model.vocab]
 
+
+class StanfordTagger(Resource):
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('s', type=str, required=True, help="Sentence cannot be blank!")
+        args = parser.parse_args()
+        words = word_tokenize("I love you.")
+        print(str(words))
+        print(pos_tagger.tag(words))
+        return str(pos_tagger.tag(words))
+
 class Contains(Resource):
     def get(self):
         parser = reqparse.RequestParser()
         parser.add_argument('w', type=str, required=True, help="Word cannot be blank!")
         args = parser.parse_args()
-        print "args is :" + str(args)
-        print str(args['w'] in model.vocab)
         return args['w'] in model.vocab
 
 
@@ -68,13 +77,13 @@ class MostSimilar(Resource):
         pos = [] if pos == None else pos
         neg = [] if neg == None else neg
         t = 10 if t == None else t
-        print "positive: " + str(pos) + " negative: " + str(neg) + " topn: " + str(t)
+        print("positive: " + str(pos) + " negative: " + str(neg) + " topn: " + str(t))
         try:
             res = model.most_similar_cosmul(positive=pos,negative=neg,topn=t)
             return res
-        except Exception, e:
-            print e
-            print res
+        except Exception as e:
+            print(e)
+            print(res)
 
 
 class Model(Resource):
@@ -86,17 +95,17 @@ class Model(Resource):
             res = model[args['word']]
             res = base64.b64encode(res)
             return res
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             return
 
 class ModelWordSet(Resource):
     def get(self):
         try:
-            res = base64.b64encode(cPickle.dumps(set(model.index2word)))
+            res = base64.b64encode(pickle.dumps(set(model.index2word)))
             return res
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             return
 
 app = Flask(__name__)
@@ -112,28 +121,33 @@ def raiseError(error):
 
 if __name__ == '__main__':
     global model
+    global pos_tagger
 
     #----------- Parsing Arguments ---------------
     p = argparse.ArgumentParser()
-    p.add_argument("--model", help="Path to the trained model")
+    p.add_argument("--w2v_model", help="Path to the trained model")
+    p.add_argument("--tag_model", help="Path to the trained model")
     p.add_argument("--binary", help="Specifies the loaded model is binary")
     p.add_argument("--host", help="Host name (default: localhost)")
     p.add_argument("--port", help="Port (default: 5000)")
-    p.add_argument("--path", help="Path (default: /word2vec)")
+    p.add_argument("--jar", help="Path to the Stanford POS Tagger .jar file")
     args = p.parse_args()
 
-    model_path = args.model if args.model else "./model.bin.gz"
-    binary = True if args.binary else False
     host = args.host if args.host else "localhost"
-    path = args.path if args.path else "/word2vec"
     port = int(args.port) if args.port else 5000
-    if not args.model:
-        print "Usage: word2vec-apy.py --model path/to/the/model [--host host --port 1234]"
-    model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-    api.add_resource(N_Similarity, path+'/n_similarity')
-    api.add_resource(Similarity, path+'/similarity')
-    api.add_resource(MostSimilar, path+'/most_similar')
-    api.add_resource(Model, path+'/model')
+    binary = True if args.binary else False
+    w2v_model_path = args.w2v_model if args.w2v_model else "./model.bin.gz"
+    nlp_model = KeyedVectors.load_word2vec_format(w2v_model_path, binary=binary)
+    api.add_resource(N_Similarity, '/word2vec/n_similarity')
+    api.add_resource(Similarity, '/word2vec/similarity')
+    api.add_resource(MostSimilar, '/word2vec/most_similar')
+    api.add_resource(Model, '/word2vec/model')
     api.add_resource(ModelWordSet, '/word2vec/model_word_set')
-    api.add_resource(Contains, path+'/contains')
+    api.add_resource(Contains, '/word2vec/contains')
+
+    jar = args.jar if args.jar else "./stanford-postagger/stanford-postagger.jar"
+    tag_model_path = args.tag_model if args.tag_model else "./stanford-postagger/models/english-bidirectional-distsim.tagger"
+    pos_tagger = StanfordPOSTagger(tag_model_path, jar, encoding = 'utf-8')
+    api.add_resource(StanfordTagger, '/stanford_tagger/partOfSpeech')
+
     app.run(host=host, port=port)
