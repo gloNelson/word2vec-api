@@ -25,7 +25,7 @@ parser = reqparse.RequestParser()
 def filter_words(words):
     if words is None:
         return
-    return [word for word in words if word in model.vocab]
+    return [word for word in words if word in nlp_model.vocab]
 
 
 class StanfordTagger(Resource):
@@ -43,7 +43,7 @@ class Contains(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('w', type=str, required=True, help="Word cannot be blank!")
         args = parser.parse_args()
-        return args['w'] in model.vocab
+        return args['w'] in nlp_model.vocab
 
 
 class N_Similarity(Resource):
@@ -52,7 +52,7 @@ class N_Similarity(Resource):
         parser.add_argument('ws1', type=str, required=True, help="Word set 1 cannot be blank!", action='append')
         parser.add_argument('ws2', type=str, required=True, help="Word set 2 cannot be blank!", action='append')
         args = parser.parse_args()
-        return model.n_similarity(filter_words(args['ws1']),filter_words(args['ws2']))
+        return nlp_model.n_similarity(filter_words(args['ws1']),filter_words(args['ws2']))
 
 
 class Similarity(Resource):
@@ -61,7 +61,7 @@ class Similarity(Resource):
         parser.add_argument('w1', type=str, required=True, help="Word 1 cannot be blank!")
         parser.add_argument('w2', type=str, required=True, help="Word 2 cannot be blank!")
         args = parser.parse_args()
-        return float(model.similarity(args['w1'], args['w2']))
+        return float(nlp_model.similarity(args['w1'], args['w2']))
 
 
 class MostSimilar(Resource):
@@ -79,7 +79,7 @@ class MostSimilar(Resource):
         t = 10 if t == None else t
         print("positive: " + str(pos) + " negative: " + str(neg) + " topn: " + str(t))
         try:
-            res = model.most_similar_cosmul(positive=pos,negative=neg,topn=t)
+            res = nlp_model.most_similar_cosmul(positive=pos,negative=neg,topn=t)
             return res
         except Exception as e:
             print(e)
@@ -92,7 +92,7 @@ class Model(Resource):
         parser.add_argument('word', type=str, required=True, help="word to query.")
         args = parser.parse_args()
         try:
-            res = model[args['word']]
+            res = nlp_model[args['word']]
             res = base64.b64encode(res)
             return res
         except Exception as e:
@@ -102,7 +102,7 @@ class Model(Resource):
 class ModelWordSet(Resource):
     def get(self):
         try:
-            res = base64.b64encode(pickle.dumps(set(model.index2word)))
+            res = base64.b64encode(pickle.dumps(set(nlp_model.index2word)))
             return res
         except Exception as e:
             print(e)
@@ -120,9 +120,8 @@ def raiseError(error):
     return error
 
 if __name__ == '__main__':
-    global model
+    global nlp_model
     global pos_tagger
-
     #----------- Parsing Arguments ---------------
     p = argparse.ArgumentParser()
     p.add_argument("--w2v_model", help="Path to the trained model")
