@@ -33,7 +33,7 @@ class StanfordTagger(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('s', type=str, required=True, help="Sentence cannot be blank!")
         args = parser.parse_args()
-        words = word_tokenize("I love you.")
+        words = word_tokenize(args['s'])
         print(str(words))
         print(pos_tagger.tag(words))
         return str(pos_tagger.tag(words))
